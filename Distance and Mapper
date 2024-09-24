@@ -1,0 +1,55 @@
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(tmap)
+library(sf)
+library(sp)
+library(spData)
+library(lubridate)
+library(hms)
+
+#Make sure your X and Y and named X and Y respectively, if your points have any titles, those can be displayed on the map as well as the number
+#Watch out to make sure the points are in order, as this solely works based on one consecutive line, if there are splitoffs or breaks in the numbers, this code won't work.
+
+#inputting points
+pipeline_points <-read.csv(path to your csv file)
+
+#Assigning Coordinates
+coordinates(pipeline_points) <- ~X + Y
+
+#Assigning Coordinates as WGS 84
+proj4string(pipeline_points) <- CRS("+proj=longlat +datum=WGS84 +no_defs")
+
+#Projecting to Rwanda's coordinate system
+pipeline_sf <- st_as_sf(pipeline_points)
+pipeline_sf <- st_transform(pipeline_sf, crs = 32735)
+
+#Calculating distances between each point
+pipeline_sf <- pipeline_sf %>%
+  mutate(distance_to_next = st_distance(geometry, lag(geometry), by_element = TRUE))  # convert to numeric
+
+# Replace NA in the last row with 0 (since there's no "next" point for the last point)
+pipeline_sf$distance_to_next[is.na(pipeline_sf$distance_to_next)] <- 0
+
+# Create a cumulative distance column
+pipeline_sf <- pipeline_sf %>%
+  mutate(cumulative_distance = cumsum(distance_to_next))
+
+# View the updated sf object with the new columns
+summary(pipeline_sf)
+
+#Writing new CSV into data file
+sf_as_df <- st_drop_geometry(pipeline_sf)
+write.csv(sf_as_df, "your data path here", row.names = FALSE)
+
+
+#Mapping points as a check
+tmap_mode("plot")
+tm_shape
+
+pipeline_map <- tm_shape(pipeline_sf) +
+  tm_symbols(col = "red", size = 0.01) +  # Adjust symbol size and color
+  tm_basemap("Esri.WorldImagery")
+
+tmap_mode("view")
+pipeline_map
